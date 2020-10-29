@@ -32,13 +32,9 @@ env:
   DIY_SH: scripts/lean-openwrt.sh
   IPV6MOD_IN_FIRMWARE: true
   KMODS_IN_FIRMWARE: true
-  UPLOAD_BIN_DIR: false
-  UPLOAD_FIRMWARE: true
   UPLOAD_PACKAGES: false
-  UPLOAD_KERNEL: false
-  UPLOAD_ROOTFS: false
-  UPLOAD_VIRTUALBOS: false
-  UPLOAD_VMWARE: false
+  UPLOAD_VDI: false
+  UPLOAD_VMDK: false
   UPLOAD_COWTRANSFER: false
   UPLOAD_WETRANSFER: false
   UPLOAD_RELEASE: true
@@ -162,7 +158,7 @@ jobs:
         echo "::set-output name=status::success"
         
     - name: Deploy Packages-Server
-      if: steps.generate.outputs.status == 'success'
+      if: steps.generate.outputs.status == 'success' && env.UPLOAD_PACKAGES == 'true'
       run: |
         mkdir -p server/web/snapshots/targets/$TARGET/$SUBTARGET
         cp -r $OPENWRTROOT/bin/packages server/web/snapshots
@@ -191,63 +187,63 @@ jobs:
       if: steps.generate.outputs.status == 'success'
       with:
         name: ${{ env.DEVICE }}.manifest
-        path: openwrt/bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/$(date +"%Y.%m.%d")-${{ env.DEVICE }}.manifest
+        path: openwrt/bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/${{ env.DEVICE }}.manifest
         
     - name: Upload Kernel Packages
       uses: actions/upload-artifact@main
-      if: steps.generate.outputs.status == 'success' && env.UPLOAD_KERNEL == 'true'
+      if: steps.generate.outputs.status == 'success'
       with:
         name: kernel-packages
         path: openwrt/bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/packages/
         
     - name: Upload RootFS Archive
       uses: actions/upload-artifact@main
-      if: steps.generate.outputs.status == 'success' && env.UPLOAD_ROOTFS == 'true'
+      if: steps.generate.outputs.status == 'success'
       with:
-        name: ${{ env.DEVICE }}-generic-rootfs.tar.gz
-        path: openwrt/bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/$(date +"%Y.%m.%d")-${{ env.DEVICE }}-rootfs.tar.gz
+        name: $(date +"%Y%m%d")-${{ env.DEVICE }}-generic-rootfs.tar.gz
+        path: openwrt/bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/$(date +"%Y%m%d")-${{ env.DEVICE }}-rootfs.tar.gz
 
     - name: Upload Combined DVD Image
       uses: actions/upload-artifact@main
       if: steps.generate.outputs.status == 'success'
       with:
-        name: ${{ env.DEVICE }}-squashfs-combined.img
-        path: openwrt/bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/$(date +"%Y.%m.%d")-${{ env.DEVICE }}-squashfs-combined.img
+        name: $(date +"%Y%m%d")-${{ env.DEVICE }}-squashfs-combined.img
+        path: openwrt/bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/$(date +"%Y%m%d")-${{ env.DEVICE }}-squashfs-combined.img
         
     - name: Upload Combined VirtualBox Image
       uses: actions/upload-artifact@main
-      if: steps.generate.outputs.status == 'success' && env.UPLOAD_VIRTUALBOS == 'true'
+      if: steps.generate.outputs.status == 'success' && env.UPLOAD_VDI == 'true'
       with:
-        name: ${{ env.DEVICE }}-squashfs-combined.vdi
-        path: openwrt/bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/$(date +"%Y.%m.%d")-${{ env.DEVICE }}-squashfs-combined.vdi
+        name: $(date +"%Y%m%d")-${{ env.DEVICE }}-squashfs-combined.vdi
+        path: openwrt/bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/$(date +"%Y%m%d")-${{ env.DEVICE }}-squashfs-combined.vdi
         
     - name: Upload Combined VMware Image
       uses: actions/upload-artifact@main
-      if: steps.generate.outputs.status == 'success' && env.UPLOAD_VMWARE == 'true'
+      if: steps.generate.outputs.status == 'success' && env.UPLOAD_VMDK == 'true'
       with:
-        name: ${{ env.DEVICE }}-squashfs-combined.vmdk
-        path: openwrt/bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/$(date +"%Y.%m.%d")-${{ env.DEVICE }}-squashfs-combined.vmdk
+        name: $(date +"%Y%m%d")-${{ env.DEVICE }}-squashfs-combined.vmdk
+        path: openwrt/bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/$(date +"%Y%m%d")-${{ env.DEVICE }}-squashfs-combined.vmdk
 
     - name: Upload GPT DVD Image
       uses: actions/upload-artifact@main
       if: steps.generate.outputs.status == 'success'
       with:
-        name: ${{ env.DEVICE }}-squashfs-combined-efi.img
-        path: openwrt/bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/$(date +"%Y.%m.%d")-${{ env.DEVICE }}-squashfs-combined-efi.img
+        name: $(date +"%Y%m%d")-${{ env.DEVICE }}-squashfs-combined-efi.img
+        path: openwrt/bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/$(date +"%Y%m%d")-${{ env.DEVICE }}-squashfs-combined-efi.img
         
     - name: Upload GPT VirtualBox Image
       uses: actions/upload-artifact@main
-      if: steps.generate.outputs.status == 'success' && env.UPLOAD_VIRTUALBOS == 'true'
+      if: steps.generate.outputs.status == 'success' && env.UPLOAD_VDI == 'true'
       with:
-        name: ${{ env.DEVICE }}-squashfs-combined-efi.vdi
-        path: openwrt/bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/$(date +"%Y.%m.%d")-${{ env.DEVICE }}-squashfs-combined-efi.vdi
+        name: $(date +"%Y%m%d")-${{ env.DEVICE }}-squashfs-combined-efi.vdi
+        path: openwrt/bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/$(date +"%Y%m%d")-${{ env.DEVICE }}-squashfs-combined-efi.vdi
         
     - name: Upload GPT VMware Image
       uses: actions/upload-artifact@main
-      if: steps.generate.outputs.status == 'success' && env.UPLOAD_VMWARE == 'true'
+      if: steps.generate.outputs.status == 'success' && env.UPLOAD_VMDK == 'true'
       with:
-        name: ${{ env.DEVICE }}-squashfs-combined-efi.vmdk
-        path: openwrt/bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/$(date +"%Y.%m.%d")-${{ env.DEVICE }}-squashfs-combined-efi.vmdk
+        name: $(date +"%Y%m%d")-${{ env.DEVICE }}-squashfs-combined-efi.vmdk
+        path: openwrt/bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/$(date +"%Y%m%d")-${{ env.DEVICE }}-squashfs-combined-efi.vmdk
 
     - name: Upload Images Sha256sums
       uses: actions/upload-artifact@main
