@@ -15,20 +15,28 @@ on:
   release:
     types: published
   schedule:
-    - cron: 0 18 * * *
+    - cron: 0 18 * * 4
 #  watch:
 #    types: started
 
 env:
   REPO_URL: https://github.com/coolsnowwolf/lede
   REPO_BRANCH: master
-  CONFIG_FILE: config/lean/x86/x86_64-lean-target.config
+  CONFIG_FILE: x86_64-lean-target.config
   DEVICE: openwrt-x86-64-generic
   DIY_SH: scripts/lean-openwrt.sh
   IPV6MOD_IN_FIRMWARE: true
   KMODS_IN_FIRMWARE: true
-  UPLOAD_COWTRANSFER: true
-  UPLOAD_WETRANSFER: true
+  UPLOAD_BIN_DIR: false
+  UPLOAD_FIRMWARE: true
+  UPLOAD_PACKAGES: false
+  UPLOAD_KERNEL: false
+  UPLOAD_ROOTFS: false
+  UPLOAD_VIRTUALBOS: false
+  UPLOAD_VMWARE: false
+  UPLOAD_COWTRANSFER: false
+  UPLOAD_WETRANSFER: false
+  UPLOAD_RELEASE: true
   TZ: Asia/Shanghai
 
 jobs:
@@ -168,7 +176,7 @@ jobs:
         
     - name: Upload Packages-Server
       uses: actions/upload-artifact@main
-      if: steps.generate.outputs.status == 'success'
+      if: steps.generate.outputs.status == 'success' && env.UPLOAD_PACKAGES == 'true'
       with:
         name: packages-server
         path: openwrt/bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/pre-packages-server
@@ -182,14 +190,14 @@ jobs:
         
     - name: Upload Kernel Packages
       uses: actions/upload-artifact@main
-      if: steps.generate.outputs.status == 'success'
+      if: steps.generate.outputs.status == 'success' && env.UPLOAD_KERNEL == 'true'
       with:
         name: kernel-packages
         path: openwrt/bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/packages/
         
     - name: Upload RootFS Archive
       uses: actions/upload-artifact@main
-      if: steps.generate.outputs.status == 'success'
+      if: steps.generate.outputs.status == 'success' && env.UPLOAD_ROOTFS == 'true'
       with:
         name: ${{ env.DEVICE }}-generic-rootfs.tar.gz
         path: openwrt/bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/${{ env.DEVICE }}-rootfs.tar.gz
@@ -203,14 +211,14 @@ jobs:
         
     - name: Upload Combined VirtualBox Image
       uses: actions/upload-artifact@main
-      if: steps.generate.outputs.status == 'success'
+      if: steps.generate.outputs.status == 'success' && env.UPLOAD_VIRTUALBOS == 'true'
       with:
         name: ${{ env.DEVICE }}-squashfs-combined.vdi
         path: openwrt/bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/${{ env.DEVICE }}-squashfs-combined.vdi
         
     - name: Upload Combined VMware Image
       uses: actions/upload-artifact@main
-      if: steps.generate.outputs.status == 'success'
+      if: steps.generate.outputs.status == 'success' && env.UPLOAD_VMWARE == 'true'
       with:
         name: ${{ env.DEVICE }}-squashfs-combined.vmdk
         path: openwrt/bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/${{ env.DEVICE }}-squashfs-combined.vmdk
@@ -224,14 +232,14 @@ jobs:
         
     - name: Upload GPT VirtualBox Image
       uses: actions/upload-artifact@main
-      if: steps.generate.outputs.status == 'success'
+      if: steps.generate.outputs.status == 'success' && env.UPLOAD_VIRTUALBOS == 'true'
       with:
         name: ${{ env.DEVICE }}-squashfs-combined-efi.vdi
         path: openwrt/bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/${{ env.DEVICE }}-squashfs-combined-efi.vdi
         
     - name: Upload GPT VMware Image
       uses: actions/upload-artifact@main
-      if: steps.generate.outputs.status == 'success'
+      if: steps.generate.outputs.status == 'success' && env.UPLOAD_VMWARE == 'true'
       with:
         name: ${{ env.DEVICE }}-squashfs-combined-efi.vmdk
         path: openwrt/bin/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/${{ env.DEVICE }}-squashfs-combined-efi.vmdk
@@ -318,3 +326,37 @@ jobs:
         cd $OPENWRTROOT/bin/targets/$TARGET/
         ./transfer wet -s -p 16 --no-progress ${OPENWRTROOT}/DL.zip 2>&1 | tee wetransfer-dl.log
 
+    - name: Generate release tag
+      id: tag
+      if: env.UPLOAD_RELEASE == 'true' && !cancelled()
+      run: |
+        echo "::set-output name=release_tag::$(date +"%Y.%m.%d-%H%M")"
+        touch release.txt
+        [ $UPLOAD_COWTRANSFER = true ] && echo "🔗 [Cowtransfer](${{ steps.cowtransfer.outputs.url }})" >> release.txt
+        [ $UPLOAD_WETRANSFER = true ] && echo "🔗 [WeTransfer](${{ steps.wetransfer.outputs.url }})" >> release.txt
+        echo "::set-output name=status::success"
+
+    - name: Upload firmware to release
+      uses: softprops/action-gh-release@v1
+      if: steps.tag.outputs.status == 'success' && !cancelled()
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.tag.outputs.release_tag }}
+        body_path: release.txt
+        files: ${{ env.FIRMWARE }}/*
+
+    - name: Remove old Artifacts
+      uses: c-hive/gha-remove-artifacts@v1.2.0
+      with:
+        age: '1 day'
+        skip-recent: 3
+
+    - name: Remove old Releases
+      uses: dev-drprasad/delete-older-releases@v0.1.0
+      if: env.UPLOAD_RELEASE == 'true' && !cancelled()
+      with:
+        keep_latest: 3
+        delete_tags: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
