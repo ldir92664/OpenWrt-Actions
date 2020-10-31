@@ -6,7 +6,7 @@
 # Blog: https://p3terx.com
 #=================================================
 
-name: SuLingGG x86_64 Lean's OpenWrt
+name: 10.30 SuLingGG x86_64 Lean's OpenWrt
 
 on:
   repository_dispatch:
