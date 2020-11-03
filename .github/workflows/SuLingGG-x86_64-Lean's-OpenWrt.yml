@@ -6,33 +6,27 @@
 # Blog: https://p3terx.com
 #=================================================
 
-name: SuLingGG-x86_64-Lean's-OpenWrt
+name: Build x86_64 Lean's OpenWrt
 
 on:
   repository_dispatch:
     types: [lean, x86_64]
   workflow_dispatch:
-    inputs:
-      ssh:
-        description: 'SSH connection to Actions'
-        required: false
-        default: 'false'
   schedule:
-    - cron: 0 18 * * 4
+    - cron: 0 18 * * *
 #  watch:
 #    types: started
 
 env:
   REPO_URL: https://github.com/coolsnowwolf/lede
   REPO_BRANCH: master
-  CONFIG_FILE: x86_64-lean-target.config
+  CONFIG_FILE: config/lean/x86/x86_64-lean-target.config
   DEVICE: openwrt-x86-64-generic
   DIY_SH: scripts/lean-openwrt.sh
   IPV6MOD_IN_FIRMWARE: true
   KMODS_IN_FIRMWARE: true
-  UPLOAD_COWTRANSFER: false
-  UPLOAD_WETRANSFER: false
-  UPLOAD_RELEASE: true
+  UPLOAD_COWTRANSFER: true
+  UPLOAD_WETRANSFER: true
   TZ: Asia/Shanghai
 
 jobs:
@@ -122,22 +116,20 @@ jobs:
       if: steps.compile.outputs.status == 'success'
       id: generate
       run: |
+        cd config/opkg
+        sed -i "s/subtarget/$SUBTARGET/g" distfeeds*.conf
+        sed -i "s/target\//$TARGET\//g" distfeeds*.conf
+        sed -i "s/platform/$PLATFORM/g" distfeeds*.conf
         cd $OPENWRTROOT
         mkdir -p files/etc/opkg
-        cp ../config/opkg/distfeeds-packages-server.conf files/etc/opkg
+        cp ../config/opkg/distfeeds-packages-server.conf files/etc/opkg/distfeeds.conf.server
         if "$KMODS_IN_FIRMWARE" = 'true'
         then
-            mkdir -p files/www/snapshots/targets
-            cp -r bin/targets/$TARGET files/www/snapshots/targets
+            mkdir -p files/www/snapshots
+            cp -r bin/targets files/www/snapshots
             cp ../config/opkg/distfeeds-18.06-local.conf files/etc/opkg/distfeeds.conf
-            sed -i "s/subtarget/$SUBTARGET/g" files/etc/opkg/distfeeds*.conf
-            sed -i "s/target\//$TARGET\//g" files/etc/opkg/distfeeds*.conf
-            sed -i "s/platform/$PLATFORM/g" files/etc/opkg/distfeeds*.conf
         else
             cp ../config/opkg/distfeeds-18.06-remote.conf files/etc/opkg/distfeeds.conf
-            sed -i "s/subtarget/$SUBTARGET/g" files/etc/opkg/distfeeds*.conf
-            sed -i "s/target\//$TARGET\//g" files/etc/opkg/distfeeds*.conf
-            sed -i "s/platform/$PLATFORM/g" files/etc/opkg/distfeeds*.conf
         fi
         if "$IPV6MOD_IN_FIRMWARE" = 'true'
         then
@@ -323,37 +315,3 @@ jobs:
         cd $OPENWRTROOT/bin/targets/$TARGET/
         ./transfer wet -s -p 16 --no-progress ${OPENWRTROOT}/DL.zip 2>&1 | tee wetransfer-dl.log
 
-    - name: Generate release tag
-      id: tag
-      if: env.UPLOAD_RELEASE == 'true' && !cancelled()
-      run: |
-        echo "::set-output name=release_tag::$(date +"%Y.%m.%d-%H%M")"
-        touch release.txt
-        [ $UPLOAD_COWTRANSFER = true ] && echo "🔗 [Cowtransfer](${{ steps.cowtransfer.outputs.url }})" >> release.txt
-        [ $UPLOAD_WETRANSFER = true ] && echo "🔗 [WeTransfer](${{ steps.wetransfer.outputs.url }})" >> release.txt
-        echo "::set-output name=status::success"
-
-    - name: Upload firmware to release
-      uses: softprops/action-gh-release@v1
-      if: steps.tag.outputs.status == 'success' && !cancelled()
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ steps.tag.outputs.release_tag }}
-        body_path: release.txt
-        files: ${{ env.FIRMWARE }}/*
-
-    - name: Remove old Artifacts
-      uses: c-hive/gha-remove-artifacts@v1.2.0
-      with:
-        age: '1 day'
-        skip-recent: 3
-
-    - name: Remove old Releases
-      uses: dev-drprasad/delete-older-releases@v0.1.0
-      if: env.UPLOAD_RELEASE == 'true' && !cancelled()
-      with:
-        keep_latest: 3
-        delete_tags: true
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
